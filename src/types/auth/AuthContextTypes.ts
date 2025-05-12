@@ -1,0 +1,1 @@
+export type AuthContextType = "entrar" | "criar-conta" | "resetar-senha";
