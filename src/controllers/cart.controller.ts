@@ -37,7 +37,7 @@ export const updateCartItemQuantityController = asyncHandler(async (req: Request
         throw new UnauthorizedError("Usuário não autenticado.");
     }
 
-    const updatedCart = await addProductToCartService({ userId, productId, quantity, selectedSize});
+    await addProductToCartService({ userId, productId, quantity, selectedSize});
 
     return handleSuccess(res, 200, "Produto adicionado ao carrinho com sucesso");
 });
@@ -57,7 +57,7 @@ export const updateCartItemRemovalController = asyncHandler(async (req: Request,
         throw new BadRequestError("É necessário fornecer todos os dados válidos para prosseguir.");
     }
 
-    const updatedCart = await removeProductFromCartService({ userId, productId, quantity, selectedSize });
+    await removeProductFromCartService({ userId, productId, quantity, selectedSize });
     return handleSuccess(res, 200, "Produto removido do carrinho com sucesso");
 });
 
