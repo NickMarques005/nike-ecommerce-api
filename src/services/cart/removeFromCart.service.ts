@@ -1,21 +1,23 @@
 import mongoose from "mongoose";
-import { addOrUpdateCartItem, findCartByUserId, removeCartItem } from "../../repositories/cart/cart.repository";
+import { decrementCartItemQuantity, findCartByUserId, removeCartItem } from "../../repositories/cart/cart.repository";
 import { BadRequestError, NotFoundError } from "../../utils/errors";
 
 interface RemoveProductFromCartServiceParams {
     userId: string;
     productId: string;
     quantity: number;
+    selectedSize: string;
 }
-
 /**
  * Serviço para remover um item (ou reduzir a quantidade) do carrinho do usuário.
- * Se a quantidade a remover for maior ou igual à existente, o produto é removido.
+ * - Se a quantidade a remover for maior ou igual à existente, o produto é removido.
+ * - Se a quantidade a remover for menor, apenas decrementa.
  */
 export const removeProductFromCartService = async ({
     userId,
     productId,
-    quantity
+    quantity,
+    selectedSize,
 }: RemoveProductFromCartServiceParams) => {
     if (!mongoose.Types.ObjectId.isValid(productId)) {
         throw new BadRequestError("ID do produto inválido.");
@@ -30,16 +32,17 @@ export const removeProductFromCartService = async ({
         throw new NotFoundError("Carrinho não encontrado.");
     }
 
-    const productInCart = cart.products.find(p => p.productId.toString() === productId);
+    const productInCart = cart.products.find(
+        (p) => p.productId.toString() === productId && p.selectedSize === selectedSize
+    );
+
     if (!productInCart) {
-        throw new NotFoundError("Produto não está no carrinho.");
+        throw new NotFoundError("Produto com este tamanho não está no carrinho.");
     }
 
     if (quantity >= productInCart.quantity) {
-        // Remove completamente o item
-        return removeCartItem(userId, productId);
+        return removeCartItem(userId, productId, selectedSize);
     }
 
-    // Reduz a quantidade do item
-    return addOrUpdateCartItem(userId, productId, -quantity);
+    return decrementCartItemQuantity(userId, productId, selectedSize, quantity);
 };

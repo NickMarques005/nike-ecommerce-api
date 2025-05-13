@@ -1,13 +1,13 @@
 import mongoose from "mongoose";
-import { addOrUpdateCartItem, createCartForUser, findCartByUserId } from "../../repositories/cart/cart.repository";
+import { addNewCartItem, createEmptyCartForUser, findCartByUserId, incrementCartItemQuantity } from "../../repositories/cart/cart.repository";
 import { BadRequestError, NotFoundError } from "../../utils/errors";
 
 interface AddProductToCartServiceParams {
     userId: string;
     productId: string;
     quantity: number;
+    selectedSize: string;
 }
-
 /**
  * Serviço para adicionar um item (ou mais) ao carrinho do usuário.
  * Se o carrinho não existir ainda, ele é criado automaticamente.
@@ -15,22 +15,32 @@ interface AddProductToCartServiceParams {
 export const addProductToCartService = async ({
     userId,
     productId,
-    quantity
+    quantity,
+    selectedSize,
 }: AddProductToCartServiceParams) => {
     if (!mongoose.Types.ObjectId.isValid(productId)) {
         throw new BadRequestError("ID do produto inválido.");
     }
 
     if (quantity <= 0) {
-        throw new NotFoundError("A quantidade deve ser maior que zero.");
+        throw new BadRequestError("A quantidade deve ser maior que zero.");
     }
 
-    const cart = await findCartByUserId(userId);
-    if (!cart){ 
-        // Carrinho é criado caso não exista
-        await createCartForUser(userId);
+    let cart = await findCartByUserId(userId);
+
+    if (!cart) {
+        cart = await createEmptyCartForUser(userId);
     }
 
-    // Adiciona produto e sua quantidade
-    return addOrUpdateCartItem(userId, productId, quantity);
+    const productAlreadyInCart = cart.products.some(
+        (item) =>
+            item.productId.toString() === productId &&
+            item.selectedSize === selectedSize
+    );
+
+    if (productAlreadyInCart) {
+        return incrementCartItemQuantity(userId, productId, selectedSize, quantity);
+    }
+
+    return addNewCartItem(userId, productId, quantity, selectedSize);
 };

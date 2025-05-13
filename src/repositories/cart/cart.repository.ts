@@ -1,11 +1,9 @@
-
 import mongoose from "mongoose";
 import { CartModel } from "../../models/cart.model";
 import { ICart } from "../../types/cart/cartTypes";
 
 /**
  * Busca o carrinho de um usuário específico pelo seu ID.
- * Retorna null se não existir.
  */
 export const findCartByUserId = async (userId: string): Promise<ICart | null> => {
     return CartModel.findOne({ userId });
@@ -13,70 +11,100 @@ export const findCartByUserId = async (userId: string): Promise<ICart | null> =>
 
 /**
  * Cria um novo carrinho vazio para um usuário.
- * Útil para inicializar o carrinho na criação da conta, por exemplo.
  */
-export const createCartForUser = async (userId: string): Promise<ICart> => {
+export const createEmptyCartForUser = async (userId: string): Promise<ICart> => {
     return CartModel.create({ userId, products: [] });
 };
 
 /**
- * Adiciona um item ao carrinho ou atualiza a quantidade se ele já existir.
- * 
- * Primeiro tenta encontrar o produto no carrinho:
- *  - Se encontrado: incrementa a quantidade.
- *  - Se não encontrado: insere o produto com a quantidade informada.
+ * Incrementa a quantidade de um item já existente no carrinho.
  */
-export const addOrUpdateCartItem = async (
+export const incrementCartItemQuantity = async (
     userId: string,
     productId: string,
-    quantity: number
-): Promise<ICart> => {
-    // Tenta encontrar o produto no carrinho e atualiza a quantidade se ele já existir
-    const cart = await CartModel.findOneAndUpdate(
-        { userId, "products.productId": productId },
+    selectedSize: string,
+    amount: number
+): Promise<ICart | null> => {
+    return CartModel.findOneAndUpdate(
         {
-            $inc: { "products.$.quantity": quantity } // incrementa a quantidade do produto existente
+            userId,
+            "products.productId": new mongoose.Types.ObjectId(productId),
+            "products.selectedSize": selectedSize,
+        },
+        {
+            $inc: { "products.$.quantity": amount },
         },
         { new: true }
     );
+};
 
-    // Se o produto já existia e foi atualizado, retorna o carrinho atualizado
-    if (cart) return cart;
+/**
+ * Decrementa a quantidade de um item já existente no carrinho.
+ * Lembre-se: se a lógica envolver remover o item se a quantidade chegar a 0,
+ * isso deve ser tratado no service.
+ */
+export const decrementCartItemQuantity = async (
+    userId: string,
+    productId: string,
+    selectedSize: string,
+    amount: number
+): Promise<ICart | null> => {
+    return incrementCartItemQuantity(userId, productId, selectedSize, -amount);
+};
 
-    // Caso o produto não exista no carrinho, adiciona um novo item ao array de produtos
+/**
+ * Adiciona um novo item ao carrinho (caso ainda não exista).
+ */
+export const addNewCartItem = async (
+    userId: string,
+    productId: string,
+    quantity: number,
+    selectedSize: string
+): Promise<ICart | null> => {
     return CartModel.findOneAndUpdate(
         { userId },
         {
             $push: {
-                products: { productId: new mongoose.Types.ObjectId(productId), quantity }
-            }
+                products: {
+                    productId: new mongoose.Types.ObjectId(productId),
+                    quantity,
+                    selectedSize,
+                },
+            },
         },
-        { upsert: true, new: true } // upsert cria um novo documento se não existir
+        { upsert: true, new: true }
     );
 };
 
 /**
  * Remove um item específico do carrinho do usuário.
- * Utiliza o operador `$pull` para excluir o item do array de produtos.
  */
 export const removeCartItem = async (
     userId: string,
-    productId: string
+    productId: string,
+    selectedSize: string
 ): Promise<ICart | null> => {
     return CartModel.findOneAndUpdate(
         { userId },
-        { $pull: { products: { productId: new mongoose.Types.ObjectId(productId) } } },
+        {
+            $pull: {
+                products: {
+                    productId: new mongoose.Types.ObjectId(productId),
+                    selectedSize,
+                },
+            },
+        },
         { new: true }
     );
 };
 
 /**
- * Limpa todos os itens do carrinho do usuário, mantendo o documento mas com array vazio.
+ * Remove todos os itens do carrinho, mantendo o documento.
  */
 export const clearCart = async (userId: string): Promise<ICart | null> => {
     return CartModel.findOneAndUpdate(
         { userId },
-        { $set: { products: [] } }, // substitui o array por um array vazio
+        { $set: { products: [] } },
         { new: true }
     );
 };

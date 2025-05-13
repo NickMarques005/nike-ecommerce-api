@@ -7,6 +7,7 @@ import { handleSuccess } from "../utils/handlers/response/responseHandler";
 import { removeProductFromCartService } from "../services/cart/removeFromCart.service";
 import { purchaseCartService } from "../services/cart/purchaseCart.service";
 import { addProductToCartService } from "../services/cart/addToCart.service";
+import { CartProductCompleteData } from "../types/cart/cartTypes";
 
 /**
  * Controller responsável por buscar os itens do carrinho de um usuário.
@@ -17,8 +18,8 @@ export const getCartItemsController = asyncHandler(async (req: Request, res: Res
         throw new UnauthorizedError("Usuário não autenticado.");
     }
 
-    const cart = await getCartItemsService(userId);
-    return handleSuccess(res, 200, "Itens do carrinho obtidos com sucesso", cart);
+    const cartProducts: CartProductCompleteData[] = await getCartItemsService(userId);
+    return handleSuccess(res, 200, "Itens do carrinho obtidos com sucesso", cartProducts);
 });
 
 /**
@@ -26,18 +27,19 @@ export const getCartItemsController = asyncHandler(async (req: Request, res: Res
  */
 export const updateCartItemQuantityController = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.uid;
-    const { productId, quantity } = req.body;
+    const { productId, quantity, selectedSize } = req.body;
+
+    if (!productId || typeof quantity !== "number" || !selectedSize) {
+        throw new BadRequestError("É necessário fornecer 'productId', 'quantity' e 'selectedSize'.");
+    }
 
     if (!userId) {
         throw new UnauthorizedError("Usuário não autenticado.");
     }
 
-    if (!productId || typeof quantity !== "number") {
-        throw new BadRequestError("É necessário fornecer 'productId' e 'quantity'.");
-    }
+    const updatedCart = await addProductToCartService({ userId, productId, quantity, selectedSize});
 
-    const updatedCart = await addProductToCartService({ userId, productId, quantity });
-    return handleSuccess(res, 200, "Produto adicionado ao carrinho com sucesso", updatedCart);
+    return handleSuccess(res, 200, "Produto adicionado ao carrinho com sucesso");
 });
 
 /**
@@ -45,18 +47,18 @@ export const updateCartItemQuantityController = asyncHandler(async (req: Request
  */
 export const updateCartItemRemovalController = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.uid;
-    const { productId, quantity } = req.body;
+    const { productId, quantity, selectedSize } = req.body;
 
     if (!userId) {
         throw new UnauthorizedError("Usuário não autenticado.");
     }
 
-    if (!productId || typeof quantity !== "number") {
-        throw new BadRequestError("É necessário fornecer 'productId' e 'quantity'.");
+    if (!productId || typeof quantity !== "number" || !selectedSize) {
+        throw new BadRequestError("É necessário fornecer todos os dados válidos para prosseguir.");
     }
 
-    const updatedCart = await removeProductFromCartService({ userId, productId, quantity });
-    return handleSuccess(res, 200, "Produto removido do carrinho com sucesso", updatedCart);
+    const updatedCart = await removeProductFromCartService({ userId, productId, quantity, selectedSize });
+    return handleSuccess(res, 200, "Produto removido do carrinho com sucesso");
 });
 
 /**
